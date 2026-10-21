@@ -39,14 +39,19 @@ const (
 
 type writer struct {
 	w        fox.ResponseWriter
-	enc      *encoder
 	zw       Writer
+	enc      *encoder
 	m        *middleware
+	ct       string
 	buf      []byte
-	code     int
+	length   int64
+	limit    int
 	size     int
+	code     int
 	declared int64
 	state    uint8
+	checked  bool
+	allowed  bool
 	written  bool
 	hijacked bool
 }
@@ -58,6 +63,9 @@ func (w *writer) reset(rw fox.ResponseWriter, enc *encoder, m *middleware) {
 	w.buf = w.buf[:0]
 	w.code = http.StatusOK
 	w.size = 0
+	w.limit = 0
+	w.length = -1
+	w.checked = false
 	w.declared = -1
 	w.state = undecided
 	w.written = false
@@ -130,10 +138,13 @@ func (w *writer) Write(p []byte) (int, error) {
 		if len(p) == 0 {
 			return 0, nil
 		}
-		if cl, ok := contentLength(w.w.Header()); ok && int64(w.size+len(p)) > cl {
+		if len(w.buf) == 0 {
+			w.prepare(len(p))
+		}
+		if w.length >= 0 && int64(w.size+len(p)) > w.length {
 			return 0, http.ErrContentLength
 		}
-		if len(w.buf)+len(p) < w.threshold() && !w.decidable() {
+		if len(w.buf)+len(p) < w.limit {
 			w.buf = append(w.buf, p...)
 			w.size += len(p)
 			return len(p), nil
@@ -269,6 +280,17 @@ func (w *writer) close() {
 	}
 }
 
+// prepare reads the declared Content-Length and the buffering limit once, on the first write.
+func (w *writer) prepare(n int) {
+	if cl, ok := contentLength(w.w.Header()); ok {
+		w.length = cl
+	}
+	w.limit = w.threshold()
+	if n < w.limit && w.decidable() {
+		w.limit = 0
+	}
+}
+
 func (w *writer) decidable() bool {
 	h := w.w.Header()
 	cl, hasCL := contentLength(h)
@@ -279,9 +301,9 @@ func (w *writer) decidable() bool {
 		// The content type is sniffed at commit, so only the status and headers can decide early.
 		return w.code == http.StatusNoContent || w.code == http.StatusResetContent || w.code == http.StatusPartialContent ||
 			w.code == http.StatusNotModified ||
-			h.Get("Content-Encoding") != "" || h.Get("Content-Range") != "" || noTransform(h)
+			firstHeader(h, "Content-Encoding") != "" || firstHeader(h, "Content-Range") != "" || noTransform(h)
 	}
-	return hasCL || !w.eligible(h, h.Get("Content-Type"))
+	return hasCL || !w.eligible(h, firstHeader(h, "Content-Type"))
 }
 
 // threshold returns the size to buffer before deciding. Without a Content-Type, it is at least the 512 bytes
@@ -302,15 +324,18 @@ func (w *writer) large(n int) bool {
 
 // varies reports whether the response representation depends on Accept-Encoding.
 func (w *writer) varies(h http.Header, ct string) bool {
-	if w.code == http.StatusNoContent || w.code == http.StatusResetContent || h.Get("Content-Encoding") != "" || noTransform(h) {
+	if w.code == http.StatusNoContent || w.code == http.StatusResetContent || firstHeader(h, "Content-Encoding") != "" || noTransform(h) {
 		return false
 	}
-	return w.m.allowed(ct)
+	if !w.checked || ct != w.ct {
+		w.ct, w.allowed, w.checked = ct, w.m.allowed(ct), true
+	}
+	return w.allowed
 }
 
 // eligible reports whether the response may be compressed regardless of its size.
 func (w *writer) eligible(h http.Header, ct string) bool {
-	if w.code == http.StatusPartialContent || w.code == http.StatusNotModified || h.Get("Content-Range") != "" {
+	if w.code == http.StatusPartialContent || w.code == http.StatusNotModified || firstHeader(h, "Content-Range") != "" {
 		return false
 	}
 	return w.varies(h, ct)
@@ -318,7 +343,7 @@ func (w *writer) eligible(h http.Header, ct string) bool {
 
 func (w *writer) commit(large bool, p []byte) error {
 	h := w.w.Header()
-	ct := h.Get("Content-Type")
+	ct := firstHeader(h, "Content-Type")
 	_, typed := h["Content-Type"]
 	if !typed && len(w.buf)+len(p) > 0 {
 		ct = sniff(w.buf, p)
@@ -330,16 +355,16 @@ func (w *writer) commit(large bool, p []byte) error {
 		if large && w.eligible(h, ct) {
 			// net/http does not sniff the content type of an encoded body.
 			if !typed && ct != "" {
-				h.Set("Content-Type", ct)
+				h["Content-Type"] = []string{ct}
 			}
 			if cl, ok := contentLength(h); ok {
 				w.declared = cl
 			}
-			h.Set("Content-Encoding", w.enc.name)
-			h.Del("Content-Length")
-			h.Del("Accept-Ranges")
-			if etag := h.Get("ETag"); etag != "" && !strings.HasPrefix(etag, "W/") {
-				h.Set("ETag", "W/"+etag)
+			h["Content-Encoding"] = []string{w.enc.name}
+			delete(h, "Content-Length")
+			delete(h, "Accept-Ranges")
+			if etag := firstHeader(h, "Etag"); etag != "" && !strings.HasPrefix(etag, "W/") {
+				h["Etag"] = []string{"W/" + etag}
 			}
 			w.state = compressed
 		}
@@ -379,8 +404,16 @@ func sniff(buf, p []byte) string {
 	return http.DetectContentType(b[:n])
 }
 
+// firstHeader returns the first value of key, which must be in canonical form.
+func firstHeader(h http.Header, key string) string {
+	if v := h[key]; len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
+
 func contentLength(h http.Header) (int64, bool) {
-	v := h.Get("Content-Length")
+	v := firstHeader(h, "Content-Length")
 	if v == "" {
 		return 0, false
 	}
@@ -392,7 +425,7 @@ func contentLength(h http.Header) (int64, bool) {
 }
 
 func noTransform(h http.Header) bool {
-	for _, v := range h.Values("Cache-Control") {
+	for _, v := range h["Cache-Control"] {
 		for d := range strings.SplitSeq(v, ",") {
 			name, _, _ := strings.Cut(d, "=")
 			if strings.EqualFold(trimOWS(name), "no-transform") {
@@ -404,7 +437,7 @@ func noTransform(h http.Header) bool {
 }
 
 func addVary(h http.Header) {
-	for _, v := range h.Values("Vary") {
+	for _, v := range h["Vary"] {
 		for token := range strings.SplitSeq(v, ",") {
 			token = trimOWS(token)
 			if token == "*" || strings.EqualFold(token, "Accept-Encoding") {
@@ -412,7 +445,7 @@ func addVary(h http.Header) {
 			}
 		}
 	}
-	h.Add("Vary", "Accept-Encoding")
+	h["Vary"] = append(h["Vary"], "Accept-Encoding")
 }
 
 type onlyWrite struct {
