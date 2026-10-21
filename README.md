@@ -9,6 +9,9 @@
 Compress is a middleware for [Fox](https://github.com/fox-toolkit/fox) that compresses responses with zstd, brotli
 or gzip, depending on the client `Accept-Encoding`.
 
+## Disclaimer
+The current API is not yet stabilized. Breaking changes may occur before v1.0.0 and will be noted on the release note.
+
 ## Getting started
 ### Installation
 
