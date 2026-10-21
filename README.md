@@ -1,5 +1,6 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/fox-toolkit/compress.svg)](https://pkg.go.dev/github.com/fox-toolkit/compress)
 [![tests](https://github.com/fox-toolkit/compress/actions/workflows/tests.yaml/badge.svg)](https://github.com/fox-toolkit/compress/actions?query=workflow%3Atests)
+[![codecov](https://codecov.io/gh/fox-toolkit/compress/graph/badge.svg?token=MNXRMQM59T)](https://codecov.io/gh/fox-toolkit/compress)
 ![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/fox-toolkit/compress)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/fox-toolkit/compress)
 
