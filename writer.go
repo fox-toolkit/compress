@@ -254,10 +254,6 @@ func (w *writer) EnableFullDuplex() error {
 	return w.w.EnableFullDuplex()
 }
 
-func (w *writer) Unwrap() http.ResponseWriter {
-	return w.w
-}
-
 func (w *writer) close() {
 	if w.hijacked || !w.written {
 		return
