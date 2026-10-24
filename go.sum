@@ -1,7 +1,7 @@
-github.com/andybalholm/brotli v1.2.6 h1:ftYnfj6usCp+UGV5kSJ3+chpMQgU+gJf/AxsUQ52REI=
-github.com/andybalholm/brotli v1.2.6/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
-github.com/fox-toolkit/fox v1.1.0 h1:BDEXhQl0rrxzBMsw3YUjqmNib8uV5QWYCWUTmdZKvVc=
-github.com/fox-toolkit/fox v1.1.0/go.mod h1:IWpK0++VvaNyc8Gts1Zjefow7WymGiY258wC+yY7Xg4=
+github.com/andybalholm/brotli v1.2.7 h1:UgafRPGMam5ySHfRkhthMqOFA6IFoeF3D7mWIDLjG5A=
+github.com/andybalholm/brotli v1.2.7/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
+github.com/fox-toolkit/fox v1.1.1 h1:WyQeQtW+/e0/lAjUx4XvQWkZEtfiZvWCcas9dLW7ZFg=
+github.com/fox-toolkit/fox v1.1.1/go.mod h1:IWpK0++VvaNyc8Gts1Zjefow7WymGiY258wC+yY7Xg4=
 github.com/klauspost/compress v1.20.3 h1:zWNoFqq/lSuYQRim3dUXlXeA0IqwuZGicdG5ZTfY5j4=
 github.com/klauspost/compress v1.20.3/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
