@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/andybalholm/brotli v1.2.6
-	github.com/fox-toolkit/fox v1.1.0
+	github.com/fox-toolkit/fox v1.1.1
 	github.com/klauspost/compress v1.20.3
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/net v0.61.0
